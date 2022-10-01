@@ -280,4 +280,3 @@ class ReadFromBzFileTest(unittest.TestCase):
 				break
 
 			entities_total += 1
-

@@ -300,28 +300,16 @@ class WikiDataParser():
 
 	def __init__(self, *, json_file_path: str, redis_config: Optional[RedisConfig]):
 		self.__json_file_path = json_file_path
-		self.__redis_config = redis_config
 
-		if self.__redis_config is not None:
-			self.__next_index_cache = redis.Redis(
-				host=self.__redis_config.get_host_pointer().get_host_address(),
-				port=self.__redis_config.get_host_pointer().get_host_port(),
-				db=0,
-				connection_pool=None
-			)
-		else:
-			self.__next_index_cache = None
+		self.__iterator_and_start_entity_index_pair_per_redis_key = {}  # type: Dict[str, Tuple[iter, int]]
 
-	def __search_file_handle(self, *, file_handle, start_entity_index: int, search_criteria: SearchCriteria, page_criteria: PageCriteria) -> List[Entity]:
+	def __search_file_handle(self, *, iterator, start_entity_index: int, search_criteria: SearchCriteria, page_criteria: PageCriteria) -> List[Entity]:
 
 		entities = []  # type: List[Entity]
 
 		# TODO see if it's possible to set the offset of the file_handle instead of burning records
-		iterator = enumerate(ijson.items(file_handle, "item"))
 		if start_entity_index != 0:
-			# burn through previous entity json records
-			for _ in range(start_entity_index):
-				next(iterator)
+			# already at necessary location as if burned through previous entity json records
 			found_entity_index = page_criteria.get_first_valid_entity_index()
 		else:
 			found_entity_index = 0
@@ -349,40 +337,35 @@ class WikiDataParser():
 			if is_last_valid_entry_found:
 				break
 
-		if self.__next_index_cache is not None:
-			next_redis_key = search_criteria.get_redis_key() + page_criteria.get_next_redis_key()
-			next_file_handle_location = file_handle.tell()
-			self.__next_index_cache.set(next_redis_key, next_file_handle_location)
-			if self.__redis_config.get_expire_seconds() is not None:
-				self.__next_index_cache.expire(next_redis_key, self.__redis_config.get_expire_seconds())
+		next_redis_key = search_criteria.get_redis_key() + page_criteria.get_next_redis_key()
+		self.__iterator_and_start_entity_index_pair_per_redis_key[next_redis_key] = (iterator, entity_json_index + 1)
 
 		return entities
 
 	def search(self, *, search_criteria: SearchCriteria, page_criteria: PageCriteria) -> List[Entity]:
 		redis_key = search_criteria.get_redis_key() + page_criteria.get_current_redis_key()
 
-		if self.__next_index_cache is not None and self.__next_index_cache.exists(redis_key):
-			start_entity_index = int(self.__next_index_cache.get(redis_key).decode())
-			if start_entity_index is None:
-				start_entity_index = 0
-		else:
+		iterator, start_entity_index = self.__iterator_and_start_entity_index_pair_per_redis_key.get(redis_key, (None, None))
+		if iterator is None:
+
+			if self.__json_file_path.endswith(".bz2"):
+				open_method = bz2.open
+			elif self.__json_file_path.endswith(".gz"):
+				open_method = gzip.open
+			elif self.__json_file_path.endswith(".json"):
+				open_method = open
+			else:
+				raise NotImplementedError(f"Unable to parse file type: {self.__json_file_path}")
+
+			file_handle = open_method(self.__json_file_path, "rb")
+			iterator = enumerate(ijson.items(file_handle, "item"))
 			start_entity_index = 0
 
-		if self.__json_file_path.endswith(".bz2"):
-			open_method = bz2.open
-		elif self.__json_file_path.endswith(".gz"):
-			open_method = gzip.open
-		elif self.__json_file_path.endswith(".json"):
-			open_method = open
-		else:
-			raise NotImplementedError(f"Unable to parse file type: {self.__json_file_path}")
-
-		with open_method(self.__json_file_path, "rb") as file_handle:
-			entities = self.__search_file_handle(
-				file_handle=file_handle,
-				start_entity_index=start_entity_index,
-				search_criteria=search_criteria,
-				page_criteria=page_criteria
-			)
+		entities = self.__search_file_handle(
+			iterator=iterator,
+			start_entity_index=start_entity_index,
+			search_criteria=search_criteria,
+			page_criteria=page_criteria
+		)
 
 		return entities
