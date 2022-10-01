@@ -1,2 +1,2 @@
-common-austinhellerrepo==0.2.18
+git+https://github.com/AustinHellerRepo/Common
 ijson==3.1.4
