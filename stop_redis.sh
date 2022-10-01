@@ -1,0 +1,2 @@
+docker stop wiki_data_parser_redis
+docker rm container wiki_data_parser_redis

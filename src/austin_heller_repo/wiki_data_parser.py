@@ -29,6 +29,9 @@ class PropertyTypeEnum(StringEnum):
 	String = "string"
 	MonolingualText = "monolingual_text"
 	Url = "url"
+	Lexeme = "lexeme"
+	Property = "property"
+	Math = "math"
 
 
 class ClaimPropertyValue():
@@ -36,6 +39,18 @@ class ClaimPropertyValue():
 	def __init__(self, *, property_type: PropertyTypeEnum, property_value: str):
 		self.__property_type = property_type
 		self.__property_value = property_value
+
+	def __str__(self):
+		return f"{self.__property_value} ({self.__property_type})"
+
+	def __eq__(self, other):
+		if isinstance(other, ClaimPropertyValue):
+			return self.__property_type == other.get_type() and \
+				self.__property_value == other.get_value()
+		return False
+
+	def __hash__(self):
+		return hash((self.__property_type.value, self.__property_value))
 
 	def get_type(self) -> PropertyTypeEnum:
 		return self.__property_type
@@ -97,6 +112,15 @@ class ClaimPropertyValue():
 		elif data_type == "geo-shape":
 			property_type = None
 			property_value = None
+		elif data_type == "wikibase-lexeme":
+			property_type = PropertyTypeEnum.Lexeme
+			property_value = json_dict["datavalue"]["value"]["id"]
+		elif data_type == "wikibase-property":
+			property_type = PropertyTypeEnum.Property
+			property_value = json_dict["datavalue"]["value"]["id"]
+		elif data_type == "math":
+			property_type = PropertyTypeEnum.Math
+			property_value = json_dict["datavalue"]["value"]
 		else:
 			raise NotImplementedError(f"Data type \"{data_type}\" not implemented: {json_dict}")
 
@@ -115,6 +139,18 @@ class Claim():
 		self.__property_id = property_id
 		self.__property_values = property_values
 
+	def __str__(self):
+		return f"{self.__property_id}: {', '.join([str(property_value) for property_value in self.__property_values])}"
+
+	def __eq__(self, other):
+		if isinstance(other, Claim):
+			return self.__property_id == other.get_property_id() and \
+				self.__property_values == other.get_property_values()
+		return False
+
+	def __hash__(self):
+		return hash((self.__property_id, self.__property_values))
+
 	def get_property_id(self) -> str:
 		return self.__property_id
 
@@ -130,6 +166,21 @@ class Entity():
 		self.__label = label
 		self.__description = description
 		self.__claims = claims
+
+	def __str__(self):
+		return f"{self.__entity_type.value} ({self.__id}): {self.__label}, {self.__description}. {len(self.__claims)} claim{'s' if self.__claims else ''}."
+
+	def __eq__(self, other):
+		if isinstance(other, Entity):
+			return self.__entity_type == other.get_entity_type() and \
+				self.__id == other.get_id() and \
+				self.__label == other.get_label() and \
+				self.__description == other.get_description() and \
+				self.__claims == other.get_claims()
+		return False
+
+	def __hash__(self):
+		return hash((self.__entity_type.value, self.__id, self.__label, self.__description, self.__claims))
 
 	def get_entity_type(self) -> EntityTypeEnum:
 		return self.__entity_type
@@ -184,6 +235,12 @@ class PageCriteria():
 	def is_valid(self, *, entity_index: int) -> bool:
 		return self.__start_inclusive_entity_index <= entity_index < self.__end_exclusive_entity_index
 
+	def is_last_valid_entity_index(self, *, entity_index: int):
+		return entity_index + 1 == self.__end_exclusive_entity_index
+
+	def get_first_valid_entity_index(self) -> int:
+		return self.__start_inclusive_entity_index
+
 	def get_current_redis_key(self) -> str:
 		return self.__current_redis_key
 
@@ -224,7 +281,7 @@ class SearchCriteria():
 
 class RedisConfig():
 
-	def __init__(self, *, host_pointer: HostPointer, expire_seconds: float):
+	def __init__(self, *, host_pointer: HostPointer, expire_seconds: Optional[float]):
 		self.__host_pointer = host_pointer
 		self.__expire_seconds = expire_seconds
 
@@ -255,15 +312,19 @@ class WikiDataParser():
 
 		entities = []  # type: List[Entity]
 
+		# TODO see if it's possible to set the offset of the file_handle instead of burning records
 		iterable = enumerate(ijson.items(file_handle, "item"))
 
 		if is_started_at_next_index:
 			# burn through previous entity json records
 			for _ in range(start_index):
 				next(iterable)
+			found_entity_index = page_criteria.get_first_valid_entity_index()
+		else:
+			found_entity_index = 0
 
-		found_entity_index = 0
-		is_at_least_one_valid_entity_found = False
+		is_last_valid_entry_found = False
+		entity_json_index = -1
 		for entity_json_index, entity_json in iterable:
 			entity = Entity.parse_json(
 				json_dict=entity_json
@@ -271,29 +332,33 @@ class WikiDataParser():
 			if search_criteria.is_valid(
 				entity=entity
 			):
-				try:
-					if is_started_at_next_index or page_criteria.is_valid(
+				if page_criteria.is_valid(
+					entity_index=found_entity_index
+				):
+					entities.append(entity)
+					if page_criteria.is_last_valid_entity_index(
 						entity_index=found_entity_index
 					):
-						if not is_at_least_one_valid_entity_found:
-							is_at_least_one_valid_entity_found = True
-						entities.append(entity)
-					elif is_at_least_one_valid_entity_found:
-						# already found all of the entities that satisfy the page criteria
-						break
-				finally:
-					found_entity_index += 1
-					if self.__next_index_cache is not None:
-						next_redis_key = search_criteria.get_redis_key() + page_criteria.get_next_redis_key()
-						self.__next_index_cache.set(next_redis_key, entity_json_index + 1)
-						self.__next_index_cache.expire(next_redis_key, self.__redis_config.get_expire_seconds())
+						is_last_valid_entry_found = True
+
+				found_entity_index += 1
+
+			if is_last_valid_entry_found:
+				break
+
+		if self.__next_index_cache is not None:
+			next_redis_key = search_criteria.get_redis_key() + page_criteria.get_next_redis_key()
+			self.__next_index_cache.set(next_redis_key, entity_json_index + 1)
+			if self.__redis_config.get_expire_seconds() is not None:
+				self.__next_index_cache.expire(next_redis_key, self.__redis_config.get_expire_seconds())
+
 		return entities
 
 	def search(self, *, search_criteria: SearchCriteria, page_criteria: PageCriteria) -> List[Entity]:
 		redis_key = search_criteria.get_redis_key() + page_criteria.get_current_redis_key()
 
 		if self.__next_index_cache is not None and self.__next_index_cache.exists(redis_key):
-			next_index = self.__next_index_cache.get(redis_key)
+			next_index = int(self.__next_index_cache.get(redis_key).decode())
 			if next_index is None:
 				next_index = 0
 				is_started_at_next_index = False
