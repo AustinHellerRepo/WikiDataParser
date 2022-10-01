@@ -1,7 +1,10 @@
 from __future__ import annotations
 from austin_heller_repo.common import StringEnum, HostPointer, convert_decimal_to_complex_string
+from io import StringIO
+from datetime import datetime
+import time
+import os
 from typing import List, Tuple, Dict, Optional
-import ijson
 import json
 import redis
 import hashlib
@@ -292,6 +295,76 @@ class RedisConfig():
 		return self.__expire_seconds
 
 
+class JsonArrayReader():
+
+	def __init__(self, *, file_handle: StringIO):
+		self.__file_handle = file_handle
+
+		self.__file_buffer = b""
+		self.__file_buffer_index = 0
+
+		if not self.__try_fill_file_buffer():
+			raise Exception(f"File is empty.")
+
+	def __try_fill_file_buffer(self):
+		self.__file_buffer = self.__file_handle.read(4096)
+		if self.__file_buffer == b"":
+			return False
+		return True
+
+	def __iter__(self):
+		return self
+
+	def __next__(self) -> Dict:
+
+		# check that the first character is an open square bracket
+		first_square_bracket = self.__file_buffer[self.__file_buffer_index:self.__file_buffer_index+1]
+		self.__file_buffer_index += 1
+		if first_square_bracket == b"":
+			raise StopIteration
+		if first_square_bracket != b"[" and first_square_bracket != b",":
+			raise Exception(f"Unexpected missing starting square bracket: \"{first_square_bracket}\".")
+
+		# gather all of the json until finding the last square bracket
+		characters = []  # type: List[str]
+		character = None
+		curly_brace_scopes = 0
+		scope_hops = 0
+		is_escaped = False
+		while not (character == b"}" and curly_brace_scopes == 0):
+			if len(self.__file_buffer) == self.__file_buffer_index:
+				if not self.__try_fill_file_buffer():
+					raise Exception(f"Unexpected empty file during buffer process.")
+				self.__file_buffer_index = 0
+			character = self.__file_buffer[self.__file_buffer_index:self.__file_buffer_index+1]
+			self.__file_buffer_index += 1
+			if is_escaped:
+				if character == b"u" or character == b"\"" or character == b"\\":
+					characters.append("\\")
+				characters.append(character.decode())
+				is_escaped = False
+			else:
+				if character == b"\\":
+					is_escaped = True
+				else:
+					characters.append(character.decode())
+
+			if character == b"}":
+				curly_brace_scopes -= 1
+				scope_hops += 1
+			elif character == b"{":
+				curly_brace_scopes += 1
+				scope_hops += 1
+
+		json_dict_string = "".join(characters)
+		try:
+			json_dict = json.loads(json_dict_string)
+		except Exception as ex:
+			print(f"{datetime.utcnow()}: {json_dict_string}")
+			raise
+		return json_dict
+
+
 class WikiDataParser():
 
 	def __init__(self, *, json_file_path: str, redis_config: Optional[RedisConfig]):
@@ -308,24 +381,24 @@ class WikiDataParser():
 		else:
 			self.__next_index_cache = None
 
-	def __search_file_handle(self, *, file_handle, start_index: int, is_started_at_next_index: bool, search_criteria: SearchCriteria, page_criteria: PageCriteria) -> List[Entity]:
+	def __search_file_handle(self, *, file_handle, is_started_at_custom_file_handle_location: bool, search_criteria: SearchCriteria, page_criteria: PageCriteria) -> List[Entity]:
 
 		entities = []  # type: List[Entity]
 
 		# TODO see if it's possible to set the offset of the file_handle instead of burning records
-		iterable = enumerate(ijson.items(file_handle, "item"))
+		json_array_reader = JsonArrayReader(
+			file_handle=file_handle
+		)
 
-		if is_started_at_next_index:
-			# burn through previous entity json records
-			for _ in range(start_index):
-				next(iterable)
+		if is_started_at_custom_file_handle_location:
+			# already burned through previous entity json records
 			found_entity_index = page_criteria.get_first_valid_entity_index()
 		else:
 			found_entity_index = 0
 
 		is_last_valid_entry_found = False
 		entity_json_index = -1
-		for entity_json_index, entity_json in iterable:
+		for entity_json_index, entity_json in enumerate(json_array_reader):
 			entity = Entity.parse_json(
 				json_dict=entity_json
 			)
@@ -348,7 +421,8 @@ class WikiDataParser():
 
 		if self.__next_index_cache is not None:
 			next_redis_key = search_criteria.get_redis_key() + page_criteria.get_next_redis_key()
-			self.__next_index_cache.set(next_redis_key, entity_json_index + 1)
+			next_file_handle_location = file_handle.tell()
+			self.__next_index_cache.set(next_redis_key, next_file_handle_location)
 			if self.__redis_config.get_expire_seconds() is not None:
 				self.__next_index_cache.expire(next_redis_key, self.__redis_config.get_expire_seconds())
 
@@ -358,44 +432,31 @@ class WikiDataParser():
 		redis_key = search_criteria.get_redis_key() + page_criteria.get_current_redis_key()
 
 		if self.__next_index_cache is not None and self.__next_index_cache.exists(redis_key):
-			next_index = int(self.__next_index_cache.get(redis_key).decode())
-			if next_index is None:
-				next_index = 0
-				is_started_at_next_index = False
-			else:
-				is_started_at_next_index = True
+			start_at_file_handle_location = int(self.__next_index_cache.get(redis_key).decode())
+			if start_at_file_handle_location is None:
+				start_at_file_handle_location = 0
 		else:
-			next_index = 0
-			is_started_at_next_index = False
+			start_at_file_handle_location = 0
 
 		if self.__json_file_path.endswith(".bz2"):
-			with bz2.open(self.__json_file_path, "rb") as file_handle:
-				entities = self.__search_file_handle(
-					file_handle=file_handle,
-					start_index=next_index,
-					is_started_at_next_index=is_started_at_next_index,
-					search_criteria=search_criteria,
-					page_criteria=page_criteria
-				)
+			open_method = bz2.open
 		elif self.__json_file_path.endswith(".gz"):
-			with gzip.open(self.__json_file_path, "rb") as file_handle:
-				entities = self.__search_file_handle(
-					file_handle=file_handle,
-					start_index=next_index,
-					is_started_at_next_index=is_started_at_next_index,
-					search_criteria=search_criteria,
-					page_criteria=page_criteria
-				)
+			open_method = gzip.open
 		elif self.__json_file_path.endswith(".json"):
-			with open(self.__json_file_path, "rb") as file_handle:
-				entities = self.__search_file_handle(
-					file_handle=file_handle,
-					start_index=next_index,
-					is_started_at_next_index=is_started_at_next_index,
-					search_criteria=search_criteria,
-					page_criteria=page_criteria
-				)
+			open_method = open
 		else:
 			raise NotImplementedError(f"Unable to parse file type: {self.__json_file_path}")
+
+		is_started_at_custom_file_handle_location = start_at_file_handle_location != 0
+
+		with open_method(self.__json_file_path, "rb") as file_handle:
+			if is_started_at_custom_file_handle_location:
+				file_handle.seek(start_at_file_handle_location)
+			entities = self.__search_file_handle(
+				file_handle=file_handle,
+				is_started_at_custom_file_handle_location=is_started_at_custom_file_handle_location,
+				search_criteria=search_criteria,
+				page_criteria=page_criteria
+			)
 
 		return entities
