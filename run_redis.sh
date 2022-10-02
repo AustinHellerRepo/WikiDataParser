@@ -1,1 +1,0 @@
-docker run --name wiki_data_parser_redis -p 6379:6379 -d redis
