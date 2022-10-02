@@ -475,3 +475,32 @@ class ReadFromBzFileTest(unittest.TestCase):
 				self.assertEqual("penis", entity.get_label())
 				break
 		self.assertEqual(10, entity_iterated_total)
+
+	def test_read_10_elements_with_iterator_specific_criteria(self):
+
+		config = configparser.ConfigParser()
+		config.read("settings.ini")
+
+		file_locations_config = config["FilePath"]
+		file_path = file_locations_config["Compressed"]
+
+		wiki_data_parser = WikiDataParser(
+			json_file_path=file_path
+		)
+
+		entity_iterated_total = 0
+		for entity_index, entity in enumerate(WikiDataParserIterator(
+			wiki_data_parser=wiki_data_parser,
+			search_criteria=SearchCriteria(
+				entity_types=[],
+				entity_types_set_compliment_type=SetComplimentTypeEnum.Exclusive,
+				id=None,
+				label_parts=["apple"],
+				description_parts=None
+			)
+		)):
+			print(f"{entity_index}: {entity}")
+			entity_iterated_total += 1
+			if entity_index == 9:
+				break
+		self.assertEqual(10, entity_iterated_total)
