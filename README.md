@@ -3,6 +3,11 @@ This project allows for easy retrieval of data from the WikiData JSON download v
 
 The WikiData JSON file can be downloaded as described from the official site at https://www.wikidata.org/wiki/Wikidata:Database_download. Extracting the compressed file is **not** a requirement.
 
+## Installation
+```terminal
+pip install git+https://github.com/AustinHellerRepo/WikiDataParser
+```
+
 ## Features
 
 - Reads one entity at a time from the massive file, reducing memory requirements
