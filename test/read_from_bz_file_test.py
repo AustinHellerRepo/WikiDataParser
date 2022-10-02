@@ -2,7 +2,7 @@ from __future__ import annotations
 import unittest
 import configparser
 import os
-from src.austin_heller_repo.wiki_data_parser import WikiDataParser, RedisConfig, SearchCriteria, PageCriteria, EntityTypeEnum, SetComplimentTypeEnum, Entity, HostPointer
+from src.austin_heller_repo.wiki_data_parser import WikiDataParser, RedisConfig, SearchCriteria, PageCriteria, EntityTypeEnum, SetComplimentTypeEnum, Entity, HostPointer, WikiDataParserIterator
 from typing import List, Tuple, Dict
 
 
@@ -28,8 +28,7 @@ class ReadFromBzFileTest(unittest.TestCase):
 		file_path = file_locations_config["Compressed"]
 
 		wiki_data_parser = WikiDataParser(
-			json_file_path=file_path,
-			redis_config=None
+			json_file_path=file_path
 		)
 
 	def test_read_one_element(self):
@@ -41,8 +40,7 @@ class ReadFromBzFileTest(unittest.TestCase):
 		file_path = file_locations_config["Compressed"]
 
 		wiki_data_parser = WikiDataParser(
-			json_file_path=file_path,
-			redis_config=None
+			json_file_path=file_path
 		)
 
 		entities = wiki_data_parser.search(
@@ -75,8 +73,7 @@ class ReadFromBzFileTest(unittest.TestCase):
 		file_path = file_locations_config["Compressed"]
 
 		wiki_data_parser = WikiDataParser(
-			json_file_path=file_path,
-			redis_config=None
+			json_file_path=file_path
 		)
 
 		found_entity = None
@@ -116,8 +113,7 @@ class ReadFromBzFileTest(unittest.TestCase):
 		file_path = file_locations_config["Compressed"]
 
 		wiki_data_parser = WikiDataParser(
-			json_file_path=file_path,
-			redis_config=None
+			json_file_path=file_path
 		)
 
 		found_entities = []  # type: List[Entity]
@@ -155,14 +151,7 @@ class ReadFromBzFileTest(unittest.TestCase):
 		file_path = file_locations_config["Compressed"]
 
 		wiki_data_parser = WikiDataParser(
-			json_file_path=file_path,
-			redis_config=RedisConfig(
-				host_pointer=HostPointer(
-					host_address="0.0.0.0",
-					host_port=6379
-				),
-				expire_seconds=5
-			)
+			json_file_path=file_path
 		)
 
 		found_entities = []  # type: List[Entity]
@@ -202,8 +191,7 @@ class ReadFromBzFileTest(unittest.TestCase):
 		file_path = file_locations_config["Compressed"]
 
 		wiki_data_parser = WikiDataParser(
-			json_file_path=file_path,
-			redis_config=None
+			json_file_path=file_path
 		)
 
 		entities_total = 0
@@ -243,14 +231,7 @@ class ReadFromBzFileTest(unittest.TestCase):
 		file_path = file_locations_config["Compressed"]
 
 		wiki_data_parser = WikiDataParser(
-			json_file_path=file_path,
-			redis_config=RedisConfig(
-				host_pointer=HostPointer(
-					host_address="0.0.0.0",
-					host_port=6379
-				),
-				expire_seconds=5
-			)
+			json_file_path=file_path
 		)
 
 		entities_total = 0
@@ -280,3 +261,217 @@ class ReadFromBzFileTest(unittest.TestCase):
 				break
 
 			entities_total += 1
+
+	def test_read_1000_elements_with_cache(self):
+
+		elements_total = 1000
+
+		config = configparser.ConfigParser()
+		config.read("settings.ini")
+
+		file_locations_config = config["FilePath"]
+		file_path = file_locations_config["Compressed"]
+
+		wiki_data_parser = WikiDataParser(
+			json_file_path=file_path
+		)
+
+		entities_total = 0
+		for _ in range(elements_total):
+			try:
+				entities = wiki_data_parser.search(
+					search_criteria=SearchCriteria(
+						entity_types=[
+							EntityTypeEnum.Item,
+							EntityTypeEnum.Property
+						],
+						entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
+						id=None,
+						label_parts=None,
+						description_parts=None
+					),
+					page_criteria=PageCriteria(
+						page_index=entities_total,
+						page_size=1
+					)
+				)
+			except Exception as ex:
+				print(f"Encountered exception after {entities_total} entities.")
+				raise
+
+			if not entities:
+				break
+
+			entities_total += 1
+
+	def test_read_10000_elements_with_cache(self):
+
+		elements_total = 10000
+
+		config = configparser.ConfigParser()
+		config.read("settings.ini")
+
+		file_locations_config = config["FilePath"]
+		file_path = file_locations_config["Compressed"]
+
+		wiki_data_parser = WikiDataParser(
+			json_file_path=file_path
+		)
+
+		entities_total = 0
+		for _ in range(elements_total):
+			try:
+				entities = wiki_data_parser.search(
+					search_criteria=SearchCriteria(
+						entity_types=[
+							EntityTypeEnum.Item,
+							EntityTypeEnum.Property
+						],
+						entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
+						id=None,
+						label_parts=None,
+						description_parts=None
+					),
+					page_criteria=PageCriteria(
+						page_index=entities_total,
+						page_size=1
+					)
+				)
+			except Exception as ex:
+				print(f"Encountered exception after {entities_total} entities.")
+				raise
+
+			if not entities:
+				break
+
+			entities_total += 1
+
+	def test_read_100000_elements_with_cache(self):
+
+		elements_total = 100000
+
+		config = configparser.ConfigParser()
+		config.read("settings.ini")
+
+		file_locations_config = config["FilePath"]
+		file_path = file_locations_config["Compressed"]
+
+		wiki_data_parser = WikiDataParser(
+			json_file_path=file_path
+		)
+
+		entities_total = 0
+		for _ in range(elements_total):
+			try:
+				entities = wiki_data_parser.search(
+					search_criteria=SearchCriteria(
+						entity_types=[
+							EntityTypeEnum.Item,
+							EntityTypeEnum.Property
+						],
+						entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
+						id=None,
+						label_parts=None,
+						description_parts=None
+					),
+					page_criteria=PageCriteria(
+						page_index=entities_total,
+						page_size=1
+					)
+				)
+			except Exception as ex:
+				print(f"Encountered exception after {entities_total} entities.")
+				raise
+
+			if not entities:
+				break
+
+			entities_total += 1
+
+	def test_read_1000000_elements_with_cache(self):
+
+		elements_total = 1000000
+
+		config = configparser.ConfigParser()
+		config.read("settings.ini")
+
+		file_locations_config = config["FilePath"]
+		file_path = file_locations_config["Compressed"]
+
+		wiki_data_parser = WikiDataParser(
+			json_file_path=file_path
+		)
+
+		entities_total = 0
+		for _ in range(elements_total):
+			try:
+				entities = wiki_data_parser.search(
+					search_criteria=SearchCriteria(
+						entity_types=[
+							EntityTypeEnum.Item,
+							EntityTypeEnum.Property
+						],
+						entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
+						id=None,
+						label_parts=None,
+						description_parts=None
+					),
+					page_criteria=PageCriteria(
+						page_index=entities_total,
+						page_size=1
+					)
+				)
+			except Exception as ex:
+				print(f"Encountered exception after {entities_total} entities.")
+				raise
+
+			if not entities:
+				break
+
+			entities_total += 1
+
+	def test_read_10000_elements_with_iterator(self):
+
+		elements_total = 10000
+
+		config = configparser.ConfigParser()
+		config.read("settings.ini")
+
+		file_locations_config = config["FilePath"]
+		file_path = file_locations_config["Compressed"]
+
+		wiki_data_parser = WikiDataParser(
+			json_file_path=file_path
+		)
+
+		entities_total = 0
+		for entity in WikiDataParserIterator(
+			wiki_data_parser=wiki_data_parser,
+			search_criteria=None
+		):
+			entities_total += 1
+			if entities_total == elements_total:
+				break
+
+	def test_read_10_elements_with_iterator(self):
+
+		config = configparser.ConfigParser()
+		config.read("settings.ini")
+
+		file_locations_config = config["FilePath"]
+		file_path = file_locations_config["Compressed"]
+
+		wiki_data_parser = WikiDataParser(
+			json_file_path=file_path
+		)
+
+		entity_iterated_total = 0
+		for entity_index, entity in enumerate(WikiDataParserIterator(
+			wiki_data_parser=wiki_data_parser,
+			search_criteria=None
+		)):
+			entity_iterated_total += 1
+			if entity_index == 9:
+				self.assertEqual("penis", entity.get_label())
+				break
+		self.assertEqual(10, entity_iterated_total)

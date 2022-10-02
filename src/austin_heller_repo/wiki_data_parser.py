@@ -36,6 +36,8 @@ class PropertyTypeEnum(StringEnum):
 	Lexeme = "lexeme"
 	Property = "property"
 	Math = "math"
+	MusicNotation = "music_notation"
+	Form = "form"
 
 
 class ClaimPropertyValue():
@@ -125,6 +127,15 @@ class ClaimPropertyValue():
 		elif data_type == "math":
 			property_type = PropertyTypeEnum.Math
 			property_value = json_dict["datavalue"]["value"]
+		elif data_type == "musical-notation":
+			property_type = PropertyTypeEnum.MusicNotation
+			property_value = json_dict["datavalue"]["value"]
+		elif data_type == "tabular-data":
+			property_type = None
+			property_value = None
+		elif data_type == "wikibase-form":
+			property_type = PropertyTypeEnum.Form
+			property_value = json_dict["datavalue"]["value"]["id"]
 		else:
 			raise NotImplementedError(f"Data type \"{data_type}\" not implemented: {json_dict}")
 
@@ -203,11 +214,20 @@ class Entity():
 
 	@classmethod
 	def parse_json(cls, *, json_dict: Dict) -> Entity:
+		if "en" not in json_dict["labels"]:
+			label = ""
+		else:
+			label = json_dict["labels"]["en"]["value"]
+		if "en" not in json_dict["descriptions"]:
+			description = ""
+		else:
+			description = json_dict["descriptions"]["en"]["value"]
+
 		return Entity(
 			entity_type=EntityTypeEnum(json_dict["type"]),
 			id=json_dict["id"],
-			label=json_dict["labels"]["en"]["value"],
-			description=json_dict["descriptions"]["en"]["value"],
+			label=label,
+			description=description,
 			claims=[
 				Claim(
 					property_id=claim_key,
@@ -298,7 +318,7 @@ class RedisConfig():
 
 class WikiDataParser():
 
-	def __init__(self, *, json_file_path: str, redis_config: Optional[RedisConfig]):
+	def __init__(self, *, json_file_path: str):
 		self.__json_file_path = json_file_path
 
 		self.__iterator_and_start_entity_index_pair_per_redis_key = {}  # type: Dict[str, Tuple[iter, int]]
@@ -369,3 +389,37 @@ class WikiDataParser():
 		)
 
 		return entities
+
+
+class WikiDataParserIterator():
+
+	def __init__(self, *, wiki_data_parser: WikiDataParser, search_criteria: Optional[SearchCriteria]):
+		self.__wiki_data_parser = wiki_data_parser
+		self.__search_criteria = search_criteria
+
+		self.__page_index = 0
+
+		if self.__search_criteria is None:
+			self.__search_criteria = SearchCriteria(
+				entity_types=[],
+				entity_types_set_compliment_type=SetComplimentTypeEnum.Exclusive,
+				id=None,
+				label_parts=None,
+				description_parts=None
+			)
+
+	def __iter__(self):
+		return self
+
+	def __next__(self):
+		entities = self.__wiki_data_parser.search(
+			search_criteria=self.__search_criteria,
+			page_criteria=PageCriteria(
+				page_index=self.__page_index,
+				page_size=1
+			)
+		)
+		self.__page_index += 1
+		if entities:
+			return entities[0]
+		raise StopIteration
