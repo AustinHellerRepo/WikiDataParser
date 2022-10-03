@@ -2,7 +2,7 @@ from __future__ import annotations
 import unittest
 import configparser
 import os
-from src.austin_heller_repo.wiki_data_parser import WikiDataParser, RedisConfig, SearchCriteria, PageCriteria, EntityTypeEnum, SetComplimentTypeEnum, Entity, HostPointer, WikiDataParserIterator
+from src.austin_heller_repo.wiki_data_parser import WikiDataParser, RedisConfig, SearchCriteria, PageCriteria, EntityTypeEnum, SetComplimentTypeEnum, Entity, HostPointer, WikiDataParserIterator, LanguageEnum
 from typing import List, Tuple, Dict
 
 
@@ -52,7 +52,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 				entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 				id=None,
 				label_parts=None,
-				description_parts=None
+				description_parts=None,
+				language=LanguageEnum.English
 			),
 			page_criteria=PageCriteria(
 				page_index=0,
@@ -87,7 +88,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 					entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 					id=None,
 					label_parts=None,
-					description_parts=None
+					description_parts=None,
+					language=LanguageEnum.English
 				),
 				page_criteria=PageCriteria(
 					page_index=0,
@@ -127,7 +129,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 					entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 					id=None,
 					label_parts=None,
-					description_parts=None
+					description_parts=None,
+					language=LanguageEnum.English
 				),
 				page_criteria=PageCriteria(
 					page_index=page_index,
@@ -165,7 +168,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 					entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 					id=None,
 					label_parts=None,
-					description_parts=None
+					description_parts=None,
+					language=LanguageEnum.English
 				),
 				page_criteria=PageCriteria(
 					page_index=page_index,
@@ -206,7 +210,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 						entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 						id=None,
 						label_parts=None,
-						description_parts=None
+						description_parts=None,
+						language=LanguageEnum.English
 					),
 					page_criteria=PageCriteria(
 						page_index=entities_total,
@@ -246,7 +251,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 						entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 						id=None,
 						label_parts=None,
-						description_parts=None
+						description_parts=None,
+						language=LanguageEnum.English
 					),
 					page_criteria=PageCriteria(
 						page_index=entities_total,
@@ -288,7 +294,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 						entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 						id=None,
 						label_parts=None,
-						description_parts=None
+						description_parts=None,
+						language=LanguageEnum.English
 					),
 					page_criteria=PageCriteria(
 						page_index=entities_total,
@@ -330,7 +337,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 						entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 						id=None,
 						label_parts=None,
-						description_parts=None
+						description_parts=None,
+						language=LanguageEnum.English
 					),
 					page_criteria=PageCriteria(
 						page_index=entities_total,
@@ -372,7 +380,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 						entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 						id=None,
 						label_parts=None,
-						description_parts=None
+						description_parts=None,
+						language=LanguageEnum.English
 					),
 					page_criteria=PageCriteria(
 						page_index=entities_total,
@@ -414,7 +423,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 						entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 						id=None,
 						label_parts=None,
-						description_parts=None
+						description_parts=None,
+						language=LanguageEnum.English
 					),
 					page_criteria=PageCriteria(
 						page_index=entities_total,
@@ -496,7 +506,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 				entity_types_set_compliment_type=SetComplimentTypeEnum.Exclusive,
 				id=None,
 				label_parts=["apple"],
-				description_parts=None
+				description_parts=None,
+				language=LanguageEnum.English
 			)
 		)):
 			print(f"{entity_index}: {entity}")
@@ -529,7 +540,8 @@ class ReadFromBzFileTest(unittest.TestCase):
 					entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
 					id=None,
 					label_parts=None,
-					description_parts=None
+					description_parts=None,
+					language=LanguageEnum.English
 				),
 				page_criteria=PageCriteria(
 					page_index=page_index,

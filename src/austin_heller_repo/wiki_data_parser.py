@@ -213,15 +213,15 @@ class Entity():
 		return self.__claims
 
 	@classmethod
-	def parse_json(cls, *, json_dict: Dict) -> Entity:
-		if "en" not in json_dict["labels"]:
-			label = ""
+	def parse_json(cls, *, json_dict: Dict, language_code: str) -> Entity:
+		if language_code not in json_dict["labels"]:
+			label = None
 		else:
-			label = json_dict["labels"]["en"]["value"]
-		if "en" not in json_dict["descriptions"]:
-			description = ""
+			label = json_dict["labels"][language_code]["value"]
+		if language_code not in json_dict["descriptions"]:
+			description = None
 		else:
-			description = json_dict["descriptions"]["en"]["value"]
+			description = json_dict["descriptions"][language_code]["value"]
 
 		return Entity(
 			entity_type=EntityTypeEnum(json_dict["type"]),
@@ -274,14 +274,18 @@ class PageCriteria():
 
 class SearchCriteria():
 
-	def __init__(self, *, entity_types: List[EntityTypeEnum], entity_types_set_compliment_type: SetComplimentTypeEnum, id: Optional[str], label_parts: Optional[List[str]], description_parts: Optional[List[str]]):
+	def __init__(self, *, entity_types: List[EntityTypeEnum], entity_types_set_compliment_type: SetComplimentTypeEnum, id: Optional[str], label_parts: Optional[List[str]], description_parts: Optional[List[str]], language: LanguageEnum):
 		self.__entity_types = entity_types
 		self.__entity_types_set_compliment_type = entity_types_set_compliment_type
 		self.__id = id
 		self.__label_parts = label_parts
 		self.__description_parts = description_parts
+		self.__language = language
 
 		self.__redis_key = hashlib.sha1(f"{','.join([entity_type.value for entity_type in self.__entity_types])}\u0000{self.__entity_types_set_compliment_type.value}\u0000{self.__id}\u0000{self.__label_parts}\u0000{self.__description_parts}".encode()).hexdigest()
+
+	def get_language(self) -> LanguageEnum:
+		return self.__language
 
 	def is_valid(self, *, entity: Entity) -> bool:
 		if (self.__entity_types_set_compliment_type == SetComplimentTypeEnum.Inclusive and entity.get_entity_type() not in self.__entity_types) or \
@@ -289,11 +293,15 @@ class SearchCriteria():
 			return False
 		if self.__id is not None and entity.get_id() != self.__id:
 			return False
+		if entity.get_label() is None:
+			return False
 		if self.__label_parts is not None:
 			for label_part in self.__label_parts:
 				if label_part not in entity.get_label():
 					return False
 		if self.__description_parts is not None:
+			if entity.get_description() is None:
+				return False
 			for description_part in self.__description_parts:
 				if description_part not in entity.get_description():
 					return False
@@ -301,6 +309,16 @@ class SearchCriteria():
 
 	def get_redis_key(self) -> str:
 		return self.__redis_key
+
+
+class LanguageEnum(StringEnum):
+	English = "english"
+
+	def get_language_code(self) -> str:
+		if self == LanguageEnum.English:
+			return "en"
+		else:
+			raise NotImplementedError(f"Language not implemented: {self.value}.")
 
 
 class RedisConfig():
@@ -336,9 +354,11 @@ class WikiDataParser():
 
 		is_last_valid_entry_found = False
 		entity_json_index = -1
+		language_code = search_criteria.get_language().get_language_code()
 		for entity_json_index, entity_json in iterator:
 			entity = Entity.parse_json(
-				json_dict=entity_json
+				json_dict=entity_json,
+				language_code=language_code
 			)
 			if search_criteria.is_valid(
 				entity=entity
@@ -405,7 +425,8 @@ class WikiDataParserIterator():
 				entity_types_set_compliment_type=SetComplimentTypeEnum.Exclusive,
 				id=None,
 				label_parts=None,
-				description_parts=None
+				description_parts=None,
+				language=LanguageEnum.English
 			)
 
 	def __iter__(self):
