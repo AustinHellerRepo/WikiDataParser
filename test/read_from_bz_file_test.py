@@ -504,3 +504,47 @@ class ReadFromBzFileTest(unittest.TestCase):
 			if entity_index == 9:
 				break
 		self.assertEqual(10, entity_iterated_total)
+
+	def test_read_using_pagination(self):
+
+		config = configparser.ConfigParser()
+		config.read("settings.ini")
+
+		file_locations_config = config["FilePath"]
+		file_path = file_locations_config["Compressed"]
+
+		wiki_data_parser = WikiDataParser(
+			json_file_path=file_path
+		)
+
+		found_entities = []  # type: List[Entity]
+		last_entity = None
+		for page_index in range(5):
+			entities = wiki_data_parser.search(
+				search_criteria=SearchCriteria(
+					entity_types=[
+						EntityTypeEnum.Item,
+						EntityTypeEnum.Property
+					],
+					entity_types_set_compliment_type=SetComplimentTypeEnum.Inclusive,
+					id=None,
+					label_parts=None,
+					description_parts=None
+				),
+				page_criteria=PageCriteria(
+					page_index=page_index,
+					page_size=2
+				)
+			)
+
+			self.assertIsNotNone(entities)
+			self.assertEqual(2, len(entities))
+			print(entities[0])
+			print(entities[1])
+
+			self.assertNotIn(entities[0], found_entities)
+			self.assertNotIn(entities[1], found_entities)
+			found_entities.append(entities[0])
+			found_entities.append(entities[1])
+			last_entity = entities[1]
+		self.assertEqual("penis", last_entity.get_label())
