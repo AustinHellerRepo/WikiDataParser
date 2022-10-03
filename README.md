@@ -17,7 +17,7 @@ pip install git+https://github.com/AustinHellerRepo/WikiDataParser
 
 _Search for the first 10 entities that have the text "apple" in the title_
 ```python
-from austin_heller_repo.wiki_data_parser import WikiDataParser, SearchCriteria, PageCriteria, SetComplimentTypeEnum
+from austin_heller_repo.wiki_data_parser import WikiDataParser, SearchCriteria, PageCriteria, SetComplimentTypeEnum, LanguageEnum
 wiki_data_parser = WikiDataParser(
     json_file_path="/path/to/download/file.json.gz"
 )
@@ -27,7 +27,8 @@ entities = wiki_data_parser.search(
         entity_types_set_compliment_type=SetComplimentTypeEnum.Exclusive,
         id=None,
         label_parts=["apple"],
-        description_parts=None
+        description_parts=None,
+        language=LanguageEnum.English
     ),
     page_criteria=PageCriteria(
         page_index=0,
