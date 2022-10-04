@@ -38,6 +38,7 @@ class PropertyTypeEnum(StringEnum):
 	Math = "math"
 	MusicNotation = "music_notation"
 	Form = "form"
+	Sense = "sense"
 
 
 class ClaimPropertyValue():
@@ -135,6 +136,9 @@ class ClaimPropertyValue():
 			property_value = None
 		elif data_type == "wikibase-form":
 			property_type = PropertyTypeEnum.Form
+			property_value = json_dict["datavalue"]["value"]["id"]
+		elif data_type == "wikibase-sense":
+			property_type = PropertyTypeEnum.Sense
 			property_value = json_dict["datavalue"]["value"]["id"]
 		else:
 			raise NotImplementedError(f"Data type \"{data_type}\" not implemented: {json_dict}")
@@ -385,7 +389,7 @@ class WikiDataParser():
 	def search(self, *, search_criteria: SearchCriteria, page_criteria: PageCriteria) -> List[Entity]:
 		redis_key = search_criteria.get_redis_key() + page_criteria.get_current_redis_key()
 
-		iterator, start_entity_index = self.__iterator_and_start_entity_index_pair_per_redis_key.get(redis_key, (None, None))
+		iterator, start_entity_index = self.__iterator_and_start_entity_index_pair_per_redis_key.pop(redis_key, (None, None))
 		if iterator is None:
 
 			if self.__json_file_path.endswith(".bz2"):
