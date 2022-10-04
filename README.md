@@ -40,7 +40,7 @@ The WikiDataParser will internally parse through the entity JSON objects, compar
 
 _Iterate over every entity until custom condition discovered_
 ```python
-from austin_heller_repo.wiki_data_parser import WikiDataParser, SetComplimentTypeEnum, WikiDataParserIterator
+from austin_heller_repo.wiki_data_parser import WikiDataParser, WikiDataParserIterator
 for entity in WikiDataParserIterator(
     wiki_data_parser=WikiDataParser(
         json_file_path="/path/to/download/file.json.gz"
