@@ -12,6 +12,7 @@ pip install git+https://github.com/AustinHellerRepo/WikiDataParser
 
 - Reads one entity at a time from the massive file, reducing memory requirements
 - Maintains file handles per search criteria to enhance sequential pagination
+  - Running locally, it took 9 hours to parse through the 109GB compressed file
 
 ## Usage
 
